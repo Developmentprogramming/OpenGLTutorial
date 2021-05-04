@@ -18,6 +18,15 @@ void processInput(GLFWwindow* window)
 
 int main()
 {
+	// glm test
+	glm::vec4 vec(1.0f, 0.0f, 0.0f, 1.0f);
+	glm::mat4 trans = glm::mat4(1.0f); // Identity Matrix
+	//trans = glm::translate(trans, glm::vec3(1.0f, 1.0f, 0.0f)); // Translation
+	trans = glm::rotate(trans, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotation
+	trans = glm::scale(trans, glm::vec3(0.5, 0.5, 0.5));
+	vec = trans * vec;
+	std::cout << vec.x << ' ' << vec.y << ' ' << vec.z << std::endl;
+
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
