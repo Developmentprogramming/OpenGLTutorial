@@ -8,6 +8,8 @@
 
 #include "Shader.h"
 
+float mixVal = 0.5f;
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
@@ -17,6 +19,20 @@ void processInput(GLFWwindow* window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+	{
+		mixVal += .05f;
+		if (mixVal > 1)
+			mixVal = 1.0f;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+	{
+		mixVal -= .05f;
+		if (mixVal < 0)
+			mixVal = 0.0f;
+	}
 }
 
 std::string loadShaderSrc(const char* filename)
@@ -162,10 +178,10 @@ int main()
 	shader.SetInt("texture1", 0);
 	shader.SetInt("texture2", 1);
 
-	glm::mat4 trans = glm::mat4(1.0f);
+	/*glm::mat4 trans = glm::mat4(1.0f);
 	trans = glm::rotate(trans, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	shader.activate();
-	shader.SetMat4("transform", trans);
+	shader.SetMat4("transform", trans);*/
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -174,14 +190,16 @@ int main()
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		trans = glm::rotate(trans, glm::radians((float)glfwGetTime() / 100.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		/*trans = glm::rotate(trans, glm::radians((float)glfwGetTime() / 100.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		shader.activate();
-		shader.SetMat4("transform", trans);
+		shader.SetMat4("transform", trans);*/
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture1);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, texture2);
+
+		shader.SetFloat("mixVal", mixVal);
 
 		// draw shapes
 		glBindVertexArray(VAO);
