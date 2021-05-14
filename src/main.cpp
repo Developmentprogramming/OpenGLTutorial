@@ -7,8 +7,14 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Shader.h"
+#include "io/Keyboard.h"
+#include "io/Mouse.h"
+#include "io/Joystick.h"
 
 float mixVal = 0.5f;
+
+glm::mat4 transform = glm::mat4(1.0f);
+Joystick mainJ(0);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -17,22 +23,58 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 void processInput(GLFWwindow* window)
 {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	if (Keyboard::key(GLFW_KEY_ESCAPE))
 		glfwSetWindowShouldClose(window, true);
 
-	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+	if (Keyboard::key(GLFW_KEY_UP))
 	{
 		mixVal += .05f;
 		if (mixVal > 1)
 			mixVal = 1.0f;
 	}
 
-	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+	if (Keyboard::key(GLFW_KEY_DOWN))
 	{
 		mixVal -= .05f;
 		if (mixVal < 0)
 			mixVal = 0.0f;
 	}
+
+	/* Keyboard */
+
+	if (Keyboard::key(GLFW_KEY_W))
+		transform = glm::translate(transform, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	if(Keyboard::key(GLFW_KEY_S))
+		transform = glm::translate(transform, glm::vec3(0.0f, -1.0f, 0.0f));
+
+	if (Keyboard::key(GLFW_KEY_A))
+		transform = glm::translate(transform, glm::vec3(-1.0f, 0.0f, 0.0f));
+
+	if (Keyboard::key(GLFW_KEY_D))
+		transform = glm::translate(transform, glm::vec3(1.0f, 0.0f, 0.0f));
+
+	mainJ.update();
+
+#if 0 // I don't have joystick to test :(, If you have joystick change 0 to 1 else remove the #if block
+	double lx = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_STICK_X);
+	double ly = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_STICK_Y);
+
+	// Joystick dead zone checks (Important)
+	if (std::abs(lx) > 0.5f)
+		transform = glm::translate(transform, glm::vec3(lx / 10, 0.0f, 0.0f));
+
+	if (std::abs(ly) > 0.5f)
+		transform = glm::translate(transform, glm::vec3(0.0f, ly / 10, 0.0f));
+
+	double rt = mainJ.axesState(GLFW_JOYSTICK_AXES_RIGHT_TRIGGER) / 2 + 0.5;
+	if (rt > 0.5f)
+		transform = glm::scale(transform, glm::vec3(1 + rt / 10, 1 + rt / 10, 0.0f));
+
+	double lt = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_TRIGGER) / 2 + 0.5;
+	if (lt > 0.5f)
+		transform = glm::scale(transform, glm::vec3(1 - rt / 10, 1 - rt / 10, 0.0f));
+#endif
 }
 
 std::string loadShaderSrc(const char* filename)
@@ -82,6 +124,12 @@ int main()
 
 	glViewport(0, 0, 800, 600);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+	glfwSetKeyCallback(window, Keyboard::keyCallback);
+
+	glfwSetCursorPosCallback(window, Mouse::cursorCallback);
+	glfwSetMouseButtonCallback(window, Mouse::mouseButtonCallback);
+	glfwSetScrollCallback(window, Mouse::mouseWheelCallback);
 
 	/*
 		shaders
@@ -183,6 +231,12 @@ int main()
 	shader.activate();
 	shader.SetMat4("transform", trans);*/
 
+	mainJ.update();
+	if (mainJ.isPresent())
+		std::cout << mainJ.getName() << " is present" << std::endl;
+	else
+		std::cout << "Not present" << std::endl;
+
 	while (!glfwWindowShouldClose(window))
 	{
 		processInput(window);
@@ -200,6 +254,7 @@ int main()
 		glBindTexture(GL_TEXTURE_2D, texture2);
 
 		shader.SetFloat("mixVal", mixVal);
+		shader.SetMat4("transform", transform);
 
 		// draw shapes
 		glBindVertexArray(VAO);
