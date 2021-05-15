@@ -11,14 +11,19 @@
 #include "io/Mouse.h"
 #include "io/Joystick.h"
 
+unsigned int SRC_WIDTH = 800, SRC_HEIGHT = 600;
+float x, y, z;
+float theta = 45.0f;
+
 float mixVal = 0.5f;
 
-glm::mat4 transform = glm::mat4(1.0f);
 Joystick mainJ(0);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
+	SRC_WIDTH = width;
+	SRC_HEIGHT = height;
 }
 
 void processInput(GLFWwindow* window)
@@ -43,16 +48,23 @@ void processInput(GLFWwindow* window)
 	/* Keyboard */
 
 	if (Keyboard::key(GLFW_KEY_W))
-		transform = glm::translate(transform, glm::vec3(0.0f, 1.0f, 0.0f));
+		y -= 0.5f;
 
-	if(Keyboard::key(GLFW_KEY_S))
-		transform = glm::translate(transform, glm::vec3(0.0f, -1.0f, 0.0f));
+	if (Keyboard::key(GLFW_KEY_S))
+		y += 0.5f;
 
 	if (Keyboard::key(GLFW_KEY_A))
-		transform = glm::translate(transform, glm::vec3(-1.0f, 0.0f, 0.0f));
+		x += 0.5f;
 
 	if (Keyboard::key(GLFW_KEY_D))
-		transform = glm::translate(transform, glm::vec3(1.0f, 0.0f, 0.0f));
+		x -= 0.5f;
+
+	if (Keyboard::key(GLFW_KEY_J))
+		theta += 0.1f;
+
+	if (Keyboard::key(GLFW_KEY_K))
+		theta -= 0.1f;
+	
 
 	mainJ.update();
 
@@ -62,39 +74,26 @@ void processInput(GLFWwindow* window)
 
 	// Joystick dead zone checks (Important)
 	if (std::abs(lx) > 0.5f)
-		transform = glm::translate(transform, glm::vec3(lx / 10, 0.0f, 0.0f));
+		x += lx / 5.0f;
 
 	if (std::abs(ly) > 0.5f)
-		transform = glm::translate(transform, glm::vec3(0.0f, ly / 10, 0.0f));
+		z += ly / 5.0f;
 
-	double rt = mainJ.axesState(GLFW_JOYSTICK_AXES_RIGHT_TRIGGER) / 2 + 0.5;
-	if (rt > 0.5f)
-		transform = glm::scale(transform, glm::vec3(1 + rt / 10, 1 + rt / 10, 0.0f));
+	if (mainJ.buttonState(GLFW_JOYSTICK_BTN_DOWN) == GLFW_PRESS)
+		y += 0.25f;
 
-	double lt = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_TRIGGER) / 2 + 0.5;
-	if (lt > 0.5f)
-		transform = glm::scale(transform, glm::vec3(1 - rt / 10, 1 - rt / 10, 0.0f));
+	if (mainJ.buttonState(GLFW_JOYSTICK_BTN_RIGHT) == GLFW_PRESS)
+		y -= 0.25f;
+
+	float rt = mainJ.axesState(GLFW_JOYSTICK_AXES_RIGHT_TRIGGER) / 2.0f * 0.5f;
+	if (rt > 0.05f)
+		theta += 0.1f;
+
+	float lt = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_TRIGGER) / 2.0f * 0.5f;
+	if (rt > 0.05f)
+		theta += 0.1f;
+
 #endif
-}
-
-std::string loadShaderSrc(const char* filename)
-{
-	std::ifstream file;
-	std::stringstream buf;
-
-	std::string ret = "";
-
-	file.open(filename);
-	if (file.is_open())
-	{
-		buf << file.rdbuf();
-		ret = buf.str();
-	}
-	else
-		std::cout << "Could not open " << filename << std::endl;
-
-	file.close();
-	return ret;
 }
 
 int main()
@@ -107,7 +106,7 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif // __APPLE__
 
-	GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL 4", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(SRC_WIDTH, SRC_HEIGHT, "OpenGL 4", nullptr, nullptr);
 	if (window == nullptr)
 	{
 		std::cout << "Failed to create GLFW window!" << std::endl;
@@ -122,7 +121,7 @@ int main()
 		return -1;
 	}
 
-	glViewport(0, 0, 800, 600);
+	glViewport(0, 0, SRC_WIDTH, SRC_HEIGHT);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	glfwSetKeyCallback(window, Keyboard::keyCallback);
@@ -130,6 +129,8 @@ int main()
 	glfwSetCursorPosCallback(window, Mouse::cursorCallback);
 	glfwSetMouseButtonCallback(window, Mouse::mouseButtonCallback);
 	glfwSetScrollCallback(window, Mouse::mouseWheelCallback);
+
+	glEnable(GL_DEPTH_TEST);
 
 	/*
 		shaders
@@ -139,24 +140,53 @@ int main()
 
 	float vertices[] = 
 	{
-		// positions			colors				texture coordinates
-		-0.5f, -0.5f, 0.0f,		1.0f, 1.0f, 0.5f,	0.0f, 0.0f,		// bottom left
-		-0.5f,  0.5f, 0.0f,		0.5f, 1.0f, 0.75f,	0.0f, 1.0f,		// top left
-		 0.5f, -0.5f, 0.0f,		0.6f, 1.0f, 0.2f,	1.0f, 0.0f,		// bottom right
-		 0.5f,  0.5f, 0.0f,		1.0f, 0.2f, 1.0f,	1.0f, 1.0f,		// top right
-	};
+		-0.5f, -0.5f, -0.5f,	0.0f, 0.0f,
+		 0.5f, -0.5f, -0.5f,	1.0f, 0.0f,
+		 0.5f,  0.5f, -0.5f,	1.0f, 1.0f,
+		 0.5f,  0.5f, -0.5f,	1.0f, 1.0f,
+		-0.5f,  0.5f, -0.5f,	0.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f,	0.0f, 0.0f,
 
-	unsigned int indices[] = 
-	{
-		0, 1, 2,
-		3, 1, 2
+		-0.5f, -0.5f,  0.5f,	0.0f, 0.0f,
+		 0.5f, -0.5f,  0.5f,	1.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,	1.0f, 1.0f,
+		 0.5f,  0.5f,  0.5f,	1.0f, 1.0f,
+		-0.5f,  0.5f,  0.5f,	0.0f, 1.0f,
+		-0.5f, -0.5f,  0.5f,	0.0f, 0.0f,
+
+		-0.5f,  0.5f,  0.5f,	1.0f, 0.0f,
+		-0.5f,  0.5f, -0.5f,	1.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f,	0.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f,	0.0f, 1.0f,
+		-0.5f, -0.5f,  0.5f,	0.0f, 0.0f,
+		-0.5f,  0.5f,  0.5f,	1.0f, 0.0f,
+
+		 0.5f,  0.5f,  0.5f,	1.0f, 0.0f,
+		 0.5f,  0.5f, -0.5f,	1.0f, 1.0f,
+		 0.5f, -0.5f, -0.5f,	0.0f, 1.0f,
+		 0.5f, -0.5f, -0.5f,	0.0f, 1.0f,
+		 0.5f, -0.5f,  0.5f,	0.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,	1.0f, 0.0f,
+
+		-0.5f, -0.5f, -0.5f,	0.0f, 1.0f,
+		 0.5f, -0.5f, -0.5f,	1.0f, 1.0f,
+		 0.5f, -0.5f,  0.5f,	1.0f, 0.0f,
+		 0.5f, -0.5f,  0.5f,	1.0f, 0.0f,
+		-0.5f, -0.5f,  0.5f,	0.0f, 0.0f,
+		-0.5f, -0.5f, -0.5f,	0.0f, 1.0f,
+
+		-0.5f,  0.5f, -0.5f,	0.0f, 1.0f,
+		 0.5f,  0.5f, -0.5f,	1.0f, 1.0f,
+		 0.5f,  0.5f,  0.5f,	1.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,	1.0f, 0.0f,
+		-0.5f,  0.5f,  0.5f,	0.0f, 0.0f,
+		-0.5f,  0.5f, -0.5f,	0.0f, 1.0f
 	};
 
 	// VAO, VBO
-	unsigned int VAO, VBO, EBO;
+	unsigned int VAO, VBO;
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
 
 	// bind VAO
 	glBindVertexArray(VAO);
@@ -167,17 +197,11 @@ int main()
 
 	// set attribute pointer
 	// position
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
-	// color
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
 	// texture coordinates
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-	glEnableVertexAttribArray(2);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	// Textures
 	unsigned int texture1, texture2;
@@ -227,7 +251,7 @@ int main()
 	shader.SetInt("texture2", 1);
 
 	/*glm::mat4 trans = glm::mat4(1.0f);
-	trans = glm::rotate(trans, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	trans = glm::rotate(trans, glm::radians(45.0f), glm::vec3(1.0f, 1.0f, 0.0f));
 	shader.activate();
 	shader.SetMat4("transform", trans);*/
 
@@ -237,29 +261,43 @@ int main()
 	else
 		std::cout << "Not present" << std::endl;
 
+	x = 0.0f;
+	y = 0.0f;
+	z = 3.0f;
+
 	while (!glfwWindowShouldClose(window))
 	{
 		processInput(window);
 
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		/*trans = glm::rotate(trans, glm::radians((float)glfwGetTime() / 100.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		shader.activate();
 		shader.SetMat4("transform", trans);*/
+
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 projection = glm::mat4(1.0f);
+
+		model = glm::rotate(model, (float)glfwGetTime() * glm::radians(-55.0f), glm::vec3(0.5f));
+		view = glm::translate(view, glm::vec3(-x, -y, -z));
+		projection = glm::perspective(glm::radians(theta), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture1);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, texture2);
 
+		shader.activate();
 		shader.SetFloat("mixVal", mixVal);
-		shader.SetMat4("transform", transform);
+		shader.SetMat4("model", model);
+		shader.SetMat4("view", view);
+		shader.SetMat4("projection", projection);
 
 		// draw shapes
 		glBindVertexArray(VAO);
-		shader.activate();
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -267,7 +305,6 @@ int main()
 
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
 
 	glfwTerminate();
 	return 0;
