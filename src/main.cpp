@@ -10,6 +10,7 @@
 #include "io/Keyboard.h"
 #include "io/Mouse.h"
 #include "io/Joystick.h"
+#include "io/Camera.h"
 
 unsigned int SRC_WIDTH = 800, SRC_HEIGHT = 600;
 float x, y, z;
@@ -19,6 +20,16 @@ float mixVal = 0.5f;
 
 Joystick mainJ(0);
 
+Camera cameras[2] = 
+{
+	glm::vec3(0.0f, 0.0f, 3.0f),
+	glm::vec3(10.0f, 10.0f, 10.0f)
+};
+int activeCam = 0;
+
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
@@ -26,7 +37,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	SRC_HEIGHT = height;
 }
 
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow* window, double dt)
 {
 	if (Keyboard::key(GLFW_KEY_ESCAPE))
 		glfwSetWindowShouldClose(window, true);
@@ -45,55 +56,34 @@ void processInput(GLFWwindow* window)
 			mixVal = 0.0f;
 	}
 
-	/* Keyboard */
-
 	if (Keyboard::key(GLFW_KEY_W))
-		y -= 0.5f;
+		cameras[activeCam].updateCameraPos(CameraDirection::FORWARD, dt);
 
 	if (Keyboard::key(GLFW_KEY_S))
-		y += 0.5f;
+		cameras[activeCam].updateCameraPos(CameraDirection::BACKWARD, dt);
 
 	if (Keyboard::key(GLFW_KEY_A))
-		x += 0.5f;
+		cameras[activeCam].updateCameraPos(CameraDirection::LEFT, dt);
 
 	if (Keyboard::key(GLFW_KEY_D))
-		x -= 0.5f;
+		cameras[activeCam].updateCameraPos(CameraDirection::RIGHT, dt);
 
-	if (Keyboard::key(GLFW_KEY_J))
-		theta += 0.1f;
+	if (Keyboard::key(GLFW_KEY_SPACE))
+		cameras[activeCam].updateCameraPos(CameraDirection::UP, dt);
 
-	if (Keyboard::key(GLFW_KEY_K))
-		theta -= 0.1f;
-	
+	if (Keyboard::key(GLFW_KEY_LEFT_SHIFT))
+		cameras[activeCam].updateCameraPos(CameraDirection::DOWN, dt);
 
-	mainJ.update();
+	if (Keyboard::keyWentDown(GLFW_KEY_TAB))
+		activeCam = !activeCam;
 
-#if 0 // I don't have joystick to test :(, If you have joystick change 0 to 1 else remove the #if block
-	double lx = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_STICK_X);
-	double ly = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_STICK_Y);
+	double dx = Mouse::getDX(), dy = Mouse::getDY();
+	if (dx != 0 || dy != 0)
+		cameras[activeCam].updateCameraDirection(dx, dy);
 
-	// Joystick dead zone checks (Important)
-	if (std::abs(lx) > 0.5f)
-		x += lx / 5.0f;
-
-	if (std::abs(ly) > 0.5f)
-		z += ly / 5.0f;
-
-	if (mainJ.buttonState(GLFW_JOYSTICK_BTN_DOWN) == GLFW_PRESS)
-		y += 0.25f;
-
-	if (mainJ.buttonState(GLFW_JOYSTICK_BTN_RIGHT) == GLFW_PRESS)
-		y -= 0.25f;
-
-	float rt = mainJ.axesState(GLFW_JOYSTICK_AXES_RIGHT_TRIGGER) / 2.0f * 0.5f;
-	if (rt > 0.05f)
-		theta += 0.1f;
-
-	float lt = mainJ.axesState(GLFW_JOYSTICK_AXES_LEFT_TRIGGER) / 2.0f * 0.5f;
-	if (rt > 0.05f)
-		theta += 0.1f;
-
-#endif
+	double scrollDy = Mouse::getScrollDY();
+	if (scrollDy != 0)
+		cameras[activeCam].updateCameraZoom(scrollDy);
 }
 
 int main()
@@ -130,6 +120,7 @@ int main()
 	glfwSetMouseButtonCallback(window, Mouse::mouseButtonCallback);
 	glfwSetScrollCallback(window, Mouse::mouseWheelCallback);
 
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glEnable(GL_DEPTH_TEST);
 
 	/*
@@ -267,7 +258,10 @@ int main()
 
 	while (!glfwWindowShouldClose(window))
 	{
-		processInput(window);
+		double currentTime = glfwGetTime();
+		deltaTime = currentTime - lastFrame;
+		lastFrame = currentTime;
+		processInput(window, deltaTime);
 
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -281,8 +275,9 @@ int main()
 		glm::mat4 projection = glm::mat4(1.0f);
 
 		model = glm::rotate(model, (float)glfwGetTime() * glm::radians(-55.0f), glm::vec3(0.5f));
-		view = glm::translate(view, glm::vec3(-x, -y, -z));
-		projection = glm::perspective(glm::radians(theta), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
+		//view = glm::translate(view, glm::vec3(-x, -y, -z));
+		view = cameras[activeCam].getViewMatrix();
+		projection = glm::perspective(glm::radians(cameras[activeCam].zoom), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture1);

@@ -34,8 +34,8 @@ void Mouse::cursorCallback(GLFWwindow* window, double _x, double _y)
 		firstMouse = false;
 	}
 
-	dx = lastX - x;
-	dy = y - lastY; // inverted
+	dx = x - lastX;
+	dy = lastY - y; // inverted
 	lastX = x;
 	lastY = y;
 }
