@@ -14,6 +14,7 @@
 #include "io/Camera.h"
 #include "io/Screen.h"
 #include "graphics/models/Cube.hpp"
+#include "graphics/models/Lamp.hpp"
 
 unsigned int SRC_WIDTH = 800, SRC_HEIGHT = 600;
 Screen screen;
@@ -30,13 +31,6 @@ int activeCam = 0;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-	glViewport(0, 0, width, height);
-	SRC_WIDTH = width;
-	SRC_HEIGHT = height;
-}
 
 void processInput(double dt)
 {
@@ -119,9 +113,13 @@ int main()
 	*/
 
 	Shader shader("assets/object.vs.shader", "assets/object.fs.shader");
+	Shader lampShader("assets/object.vs.shader", "assets/lamp.fs.shader");
 
-	Cube cube(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.75f));
+	Cube cube(Material::mix(Material::pearl, Material::brass), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.75f));
 	cube.init();
+
+	Lamp lamp(glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(-1.0f, -0.5f, -0.5f), glm::vec3(0.25f));
+	lamp.init();
 
 	mainJ.update();
 	if (mainJ.isPresent())
@@ -144,16 +142,28 @@ int main()
 		projection = glm::perspective(glm::radians(cameras[activeCam].getZoom()), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
 
 		shader.activate();
-		shader.SetFloat("mixVal", mixVal);
+		shader.Set3Float("light.position", lamp.pos);
+		shader.Set3Float("viewPos", cameras[activeCam].cameraPos);
+
+		shader.Set3Float("light.ambient", lamp.ambient);
+		shader.Set3Float("light.diffuse", lamp.diffuse);
+		shader.Set3Float("light.specular", lamp.specular);
+
 		shader.SetMat4("view", view);
 		shader.SetMat4("projection", projection);
 
 		cube.render(shader);
 
+		lampShader.activate();
+		lampShader.SetMat4("view", view);
+		lampShader.SetMat4("projection", projection);
+		lamp.render(lampShader);
+
 		screen.newFrame();
 	}
 
 	cube.cleanup();
+	lamp.cleanup();
 
 	glfwTerminate();
 	return 0;

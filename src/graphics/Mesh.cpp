@@ -15,9 +15,15 @@ std::vector<Vertex> Vertex::getList(float* vertices, int noVertices)
 			vertices[i * stride + 2]
 		);
 
-		ret[i].texCoord = glm::vec2(
+		ret[i].normal = glm::vec3(
 			vertices[i * stride + 3],
-			vertices[i * stride + 4]
+			vertices[i * stride + 4],
+			vertices[i * stride + 5]
+		);
+
+		ret[i].texCoord = glm::vec2(
+			vertices[i * stride + 6],
+			vertices[i * stride + 7]
 		);
 	}
 
@@ -75,11 +81,15 @@ void Mesh::setup()
 	// set vertex attribute pointer
 	// vertex.position
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0); // alternative use offsetof(Vertex, pos) function
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0); // alternative for @param pointer use offsetof(Vertex, pos) function
+
+	// vertex.normal
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float))); // alternative for @param pointer use offsetof(Vertex, normal) function
 
 	// vertex.texCoord
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float))); // alternative use offsetof(Vertex, texCoord) function
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float))); // alternative for @param pointer use offsetof(Vertex, texCoord) function
 
 	glBindVertexArray(0);
 }
