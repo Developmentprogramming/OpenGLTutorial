@@ -15,6 +15,7 @@
 #include "io/Screen.h"
 #include "graphics/models/Cube.hpp"
 #include "graphics/models/Lamp.hpp"
+#include "graphics/Light.h"
 
 unsigned int SRC_WIDTH = 800, SRC_HEIGHT = 600;
 Screen screen;
@@ -31,6 +32,8 @@ int activeCam = 0;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+bool flashLightOn = true;
 
 void processInput(double dt)
 {
@@ -71,6 +74,9 @@ void processInput(double dt)
 
 	if (Keyboard::keyWentDown(GLFW_KEY_TAB))
 		activeCam = !activeCam;
+
+	if (Keyboard::keyWentDown(GLFW_KEY_L))
+		flashLightOn = !flashLightOn;
 
 	double dx = Mouse::getDX(), dy = Mouse::getDY();
 	if (dx != 0 || dy != 0)
@@ -115,11 +121,49 @@ int main()
 	Shader shader("assets/object.vs.shader", "assets/object.fs.shader");
 	Shader lampShader("assets/object.vs.shader", "assets/lamp.fs.shader");
 
-	Cube cube(Material::mix(Material::pearl, Material::brass), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.75f));
-	cube.init();
+	glm::vec3 cubePositions[] = {
+		glm::vec3(0.0f,  0.0f,  0.0f),
+		glm::vec3(2.0f,  5.0f, -15.0f),
+		glm::vec3(-1.5f, -2.2f, -2.5f),
+		glm::vec3(-3.8f, -2.0f, -12.3f),
+		glm::vec3(2.4f, -0.4f, -3.5f),
+		glm::vec3(-1.7f,  3.0f, -7.5f),
+		glm::vec3(1.3f, -2.0f, -2.5f),
+		glm::vec3(1.5f,  2.0f, -2.5f),
+		glm::vec3(1.5f,  0.2f, -1.5f),
+		glm::vec3(-1.3f,  1.0f, -1.5f)
+	};
 
-	Lamp lamp(glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(-1.0f, -0.5f, -0.5f), glm::vec3(0.25f));
-	lamp.init();
+	Cube cubes[10];
+	for (unsigned int i = 0; i < 10; i++) {
+		cubes[i] = Cube(Material::brass, cubePositions[i], glm::vec3(1.0f));
+		cubes[i].init();
+	}
+
+	glm::vec3 pointLightPositions[] = {
+			glm::vec3(0.7f,  0.2f,  2.0f),
+			glm::vec3(2.3f, -3.3f, -4.0f),
+			glm::vec3(-4.0f,  2.0f, -12.0f),
+			glm::vec3(0.0f,  0.0f, -3.0f)
+	};
+	Lamp lamps[4];
+	for (unsigned int i = 0; i < 4; i++) {
+		lamps[i] = Lamp(glm::vec3(1.0f),
+			glm::vec3(0.05f), glm::vec3(0.8f), glm::vec3(1.0f),
+			1.0f, 0.07f, 0.032f,
+			pointLightPositions[i], glm::vec3(0.25f));
+		lamps[i].init();
+	}
+
+	DirLight dirLight = { glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec3(0.1f), glm::vec3(0.4f), glm::vec3(0.75f) };
+
+	SpotLight s =
+	{
+		cameras[activeCam].cameraPos, cameras[activeCam].cameraFront,
+		glm::cos(glm::radians(12.5f)), glm::cos(glm::radians(20.5f)),
+		1.0f, 0.7f, 0.032f,
+		glm::vec3(0.0f), glm::vec3(1.0f), glm::vec3(1.0f)
+	};
 
 	mainJ.update();
 	if (mainJ.isPresent())
@@ -142,28 +186,60 @@ int main()
 		projection = glm::perspective(glm::radians(cameras[activeCam].getZoom()), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
 
 		shader.activate();
-		shader.Set3Float("light.position", lamp.pos);
 		shader.Set3Float("viewPos", cameras[activeCam].cameraPos);
 
-		shader.Set3Float("light.ambient", lamp.ambient);
-		shader.Set3Float("light.diffuse", lamp.diffuse);
-		shader.Set3Float("light.specular", lamp.specular);
+		dirLight.direction = glm::vec3(
+			glm::rotate(glm::mat4(1.0f), glm::radians(0.5f), glm::vec3(1.0f, 0.0f, 0.0f)) * 
+			glm::vec4(dirLight.direction, 1.0f)
+			);
+		dirLight.render(shader);
+
+		for (int i = 0; i < 4; i++)
+		{
+			lamps[i].pointLight.render(shader, i);
+		}
+		shader.SetInt("noPointLights", 4);
+
+		if (flashLightOn)
+		{
+			s.position = cameras[activeCam].cameraPos;
+			s.direction = cameras[activeCam].cameraFront;
+			s.render(shader, 0);
+			shader.SetInt("noSpotLights", 1);
+		}
+		else
+		{
+			shader.SetInt("noSpotLights", 0);
+		}
 
 		shader.SetMat4("view", view);
 		shader.SetMat4("projection", projection);
 
-		cube.render(shader);
+		for (int i = 0; i < 10; i++)
+		{
+			cubes[i].render(shader);
+		}
 
 		lampShader.activate();
 		lampShader.SetMat4("view", view);
 		lampShader.SetMat4("projection", projection);
-		lamp.render(lampShader);
+		for (int i = 0; i < 4; i++)
+		{
+			lamps[i].render(lampShader);
+		}
 
 		screen.newFrame();
 	}
 
-	cube.cleanup();
-	lamp.cleanup();
+	for (int i = 0; i < 10; i++)
+	{
+		cubes[i].cleanup();
+	}
+	
+	for (int i = 0; i < 4; i++)
+	{
+		lamps[i].cleanup();
+	}
 
 	glfwTerminate();
 	return 0;

@@ -15,6 +15,8 @@ public:
 		: material(material), pos(pos), size(size)
 	{}
 
+	Cube() { }
+
 	void init()
 	{
 		int noVertices = 36;
@@ -69,12 +71,13 @@ public:
 		for (unsigned int i = 0; i < noVertices; i++)
 			indices[i] = i;
 
-		Texture tex0("assets/image1.jpg", "texture1");
-		tex0.load();
-		Texture tex1("assets/image2.png", "texture2");
-		tex1.load();
+		Texture flag("assets/flag.jpg", "material.diffuse");
+		flag.load();
 
-		meshes.push_back(Mesh(Vertex::getList(vertices, noVertices), indices, { tex0, tex1 }));
+		Texture flagSpec("assets/flag_specular.jpg", "material.specular");
+		flagSpec.load();
+
+		meshes.push_back(Mesh(Vertex::getList(vertices, noVertices), indices, { flag, flagSpec }));
 	}
 
 	void render(Shader shader)
@@ -87,8 +90,8 @@ public:
 		shader.SetMat4("model", model);
 
 		shader.Set3Float("material.ambient", material.ambient);
-		shader.Set3Float("material.diffuse", material.diffuse);
-		shader.Set3Float("material.specular", material.specular);
+		//shader.Set3Float("material.diffuse", material.diffuse);
+		//shader.Set3Float("material.specular", material.specular);
 		shader.SetFloat("material.shininess", material.shininess);
 
 		Model::render(shader);
