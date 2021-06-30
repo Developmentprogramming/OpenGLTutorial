@@ -36,18 +36,59 @@ Mesh::Mesh()
 }
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures)
-	: vertices(vertices), indices(indices), textures(textures)
+	: vertices(vertices), indices(indices), textures(textures), noTex(false)
+{
+	setup();
+}
+
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, aiColor4D diffuse, aiColor4D specular)
+	: vertices(vertices), indices(indices), diffuse(diffuse), specular(specular), noTex(true)
 {
 	setup();
 }
 
 void Mesh::render(Shader shader)
 {
-	for (unsigned int i = 0; i < textures.size(); i++)
+	if (noTex)
 	{
-		shader.SetInt(textures[i].name, textures[i].id);
-		glActiveTexture(GL_TEXTURE0 + i);
-		textures[i].bind();
+		// materials
+		shader.Set4Float("material.diffuse", diffuse);
+		shader.Set4Float("material.specular", specular);
+		shader.SetInt("noTex", 1);
+	}
+	else
+	{
+		// textures
+		unsigned int diffuseIdx = 0;
+		unsigned int specularIdx = 0;
+
+		for (unsigned int i = 0; i < textures.size(); i++)
+		{
+			// activate texture
+			glActiveTexture(GL_TEXTURE0 + i);
+
+			// retrieve texture info
+			std::string name;
+			switch (textures[i].type)
+			{
+			case aiTextureType_DIFFUSE:
+				name = "diffuse" + std::to_string(diffuseIdx++);
+				break;
+
+			case aiTextureType_SPECULAR:
+				name = "specular" + std::to_string(specularIdx++);
+				break;
+
+			default:
+				break;
+			}
+
+			// set the shader value
+			shader.SetInt(name, i);
+
+			// bind texture
+			textures[i].bind();
+		}
 	}
 
 	glBindVertexArray(VAO);

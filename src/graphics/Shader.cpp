@@ -111,6 +111,16 @@ void Shader::Set4Float(const std::string& name, float v0, float v1, float v2, fl
 	glUniform4f(glGetUniformLocation(m_Id, name.c_str()), v0, v1, v2, v3);
 }
 
+void Shader::Set4Float(const std::string& name, aiColor4D color)
+{
+	Set4Float(name, color.r, color.g, color.b, color.a);
+}
+
+void Shader::Set4Float(const std::string& name, glm::vec4 v)
+{
+	Set4Float(name, v.x, v.y, v.z, v.w);
+}
+
 void Shader::SetMat4(const std::string& name, glm::mat4 val)
 {
 	glUniformMatrix4fv(glGetUniformLocation(m_Id, name.c_str()), 1, GL_FALSE, glm::value_ptr(val));
