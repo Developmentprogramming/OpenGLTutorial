@@ -15,6 +15,7 @@
 #include "io/Screen.h"
 #include "graphics/models/Cube.hpp"
 #include "graphics/models/Lamp.hpp"
+#include "graphics/models/Gun.hpp"
 #include "graphics/Light.h"
 
 unsigned int SRC_WIDTH = 800, SRC_HEIGHT = 600;
@@ -23,12 +24,7 @@ float mixVal = 0.5f;
 
 Joystick mainJ(0);
 
-Camera cameras[2] = 
-{
-	glm::vec3(0.0f, 0.0f, 3.0f),
-	glm::vec3(10.0f, 10.0f, 10.0f)
-};
-int activeCam = 0;
+Camera Camera::defaultCamera(glm::vec3(0.0f));
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -55,36 +51,33 @@ void processInput(double dt)
 	}
 
 	if (Keyboard::key(GLFW_KEY_W))
-		cameras[activeCam].updateCameraPos(CameraDirection::FORWARD, dt);
+		Camera::defaultCamera.updateCameraPos(CameraDirection::FORWARD, dt);
 
 	if (Keyboard::key(GLFW_KEY_S))
-		cameras[activeCam].updateCameraPos(CameraDirection::BACKWARD, dt);
+		Camera::defaultCamera.updateCameraPos(CameraDirection::BACKWARD, dt);
 
 	if (Keyboard::key(GLFW_KEY_A))
-		cameras[activeCam].updateCameraPos(CameraDirection::LEFT, dt);
+		Camera::defaultCamera.updateCameraPos(CameraDirection::LEFT, dt);
 
 	if (Keyboard::key(GLFW_KEY_D))
-		cameras[activeCam].updateCameraPos(CameraDirection::RIGHT, dt);
+		Camera::defaultCamera.updateCameraPos(CameraDirection::RIGHT, dt);
 
 	if (Keyboard::key(GLFW_KEY_SPACE))
-		cameras[activeCam].updateCameraPos(CameraDirection::UP, dt);
+		Camera::defaultCamera.updateCameraPos(CameraDirection::UP, dt);
 
 	if (Keyboard::key(GLFW_KEY_LEFT_SHIFT))
-		cameras[activeCam].updateCameraPos(CameraDirection::DOWN, dt);
-
-	if (Keyboard::keyWentDown(GLFW_KEY_TAB))
-		activeCam = !activeCam;
+		Camera::defaultCamera.updateCameraPos(CameraDirection::DOWN, dt);
 
 	if (Keyboard::keyWentDown(GLFW_KEY_L))
 		flashLightOn = !flashLightOn;
 
 	double dx = Mouse::getDX(), dy = Mouse::getDY();
 	if (dx != 0 || dy != 0)
-		cameras[activeCam].updateCameraDirection(dx, dy);
+		Camera::defaultCamera.updateCameraDirection(dx, dy);
 
 	double scrollDy = Mouse::getScrollDY();
 	if (scrollDy != 0)
-		cameras[activeCam].updateCameraZoom(scrollDy);
+		Camera::defaultCamera.updateCameraZoom(scrollDy);
 }
 
 int main()
@@ -121,20 +114,23 @@ int main()
 	Shader shader("assets/object.vs.shader", "assets/object.fs.shader");
 	Shader lampShader("assets/object.vs.shader", "assets/lamp.fs.shader");
 
-	Model m(glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.05f), true);
-	m.loadModel("assets/models/m4a1/scene.gltf");
+	Gun g;
+	g.loadModel("assets/models/m4a1/scene.gltf");
 
-	DirLight dirLight = { glm::vec3(-0.2f, -1.0f, -0.3f), 
+	DirLight dirLight = 
+	{ 
+		glm::vec3(-0.2f, -1.0f, -0.3f), 
 		glm::vec4(glm::vec3(0.1f), 1.0f),
 		glm::vec4(glm::vec3(0.4f), 1.0f),
 		glm::vec4(glm::vec3(0.75f), 1.0f)
 	};
 
-	glm::vec3 pointLightPositions[] = {
-			glm::vec3(0.7f,  0.2f,  2.0f),
-			glm::vec3(2.3f, -3.3f, -4.0f),
-			glm::vec3(-4.0f,  2.0f, -12.0f),
-			glm::vec3(0.0f,  0.0f, -3.0f)
+	glm::vec3 pointLightPositions[] = 
+	{
+		glm::vec3(0.7f,  0.2f,  2.0f),
+		glm::vec3(2.3f, -3.3f, -4.0f),
+		glm::vec3(-4.0f,  2.0f, -12.0f),
+		glm::vec3(0.0f,  0.0f, -3.0f)
 	};
 
 	Lamp lamps[4];
@@ -148,7 +144,7 @@ int main()
 
 	SpotLight s =
 	{
-		cameras[activeCam].cameraPos, cameras[activeCam].cameraFront,
+		Camera::defaultCamera.cameraPos, Camera::defaultCamera.cameraFront,
 		glm::cos(glm::radians(12.5f)), glm::cos(glm::radians(20.5f)),
 		1.0f, 0.7f, 0.032f,
 		glm::vec4(glm::vec3(0.0f), 1.0f), glm::vec4(glm::vec3(1.0f), 1.0f), glm::vec4(glm::vec3(1.0f), 1.0f)
@@ -171,11 +167,11 @@ int main()
 
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
-		view = cameras[activeCam].getViewMatrix();
-		projection = glm::perspective(glm::radians(cameras[activeCam].getZoom()), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
+		view = Camera::defaultCamera.getViewMatrix();
+		projection = glm::perspective(glm::radians(Camera::defaultCamera.getZoom()), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
 
 		shader.activate();
-		shader.Set3Float("viewPos", cameras[activeCam].cameraPos);
+		shader.Set3Float("viewPos", Camera::defaultCamera.cameraPos);
 
 		dirLight.direction = glm::vec3(
 			glm::rotate(glm::mat4(1.0f), glm::radians(0.5f), glm::vec3(1.0f, 0.0f, 0.0f)) * 
@@ -191,8 +187,8 @@ int main()
 
 		if (flashLightOn)
 		{
-			s.position = cameras[activeCam].cameraPos;
-			s.direction = cameras[activeCam].cameraFront;
+			s.position = Camera::defaultCamera.cameraPos;
+			s.direction = Camera::defaultCamera.cameraFront;
 			s.render(shader, 0);
 			shader.SetInt("noSpotLights", 1);
 		}
@@ -204,7 +200,7 @@ int main()
 		shader.SetMat4("view", view);
 		shader.SetMat4("projection", projection);
 
-		m.render(shader);
+		g.render(shader);
 
 		lampShader.activate();
 		lampShader.SetMat4("view", view);
@@ -217,7 +213,7 @@ int main()
 		screen.newFrame();
 	}
 
-	m.cleanup();
+	g.cleanup();
 	
 	for (int i = 0; i < 4; i++)
 	{

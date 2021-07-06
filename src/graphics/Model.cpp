@@ -24,13 +24,15 @@ void Model::loadModel(std::string path)
 	processNode(scene->mRootNode, scene);
 }
 
-void Model::render(Shader shader)
+void Model::render(Shader shader, bool setModel)
 {
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, pos);
-	model = glm::scale(model, size);
-
-	shader.SetMat4("model", model);
+	if (setModel)
+	{
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, pos);
+		model = glm::scale(model, size);
+		shader.SetMat4("model", model);
+	}
 
 	shader.SetFloat("material.shininess", 0.5f);
 
@@ -143,7 +145,6 @@ std::vector<Texture> Model::loadTextures(aiMaterial* mat, aiTextureType type)
 	{
 		aiString str;
 		mat->GetTexture(type, i, &str);
-		std::cout << str.C_Str() << std::endl;
 
 		// prevent duplicate loading
 		bool skip = false;
