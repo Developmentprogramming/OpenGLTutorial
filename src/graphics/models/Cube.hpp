@@ -6,15 +6,11 @@
 class Cube : public Model
 {
 public:
-	glm::vec3 pos;
-	glm::vec3 size;
-
 	Material material;
 
 	Cube(glm::vec3 pos = glm::vec3(0.0f), glm::vec3 size = glm::vec3(1.0f))
-		: pos(pos), size(size)
+		: Model(pos, size)
 	{
-
 	}
 
 	void init()
@@ -78,5 +74,10 @@ public:
 		flagSpec.load();*/
 
 		meshes.push_back(Mesh(Vertex::getList(vertices, noVertices), indices));
+	}
+
+	void render(Shader shader, float dt)
+	{
+		Model::render(shader, dt);
 	}
 };

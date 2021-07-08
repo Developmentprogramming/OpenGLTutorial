@@ -1,8 +1,10 @@
 #include "Model.h"
+#include "../physics/Environment.h"
 
 Model::Model(glm::vec3 pos /*= glm::vec3(0.0f)*/, glm::vec3 size /*= glm::vec3(1.0f)*/, bool noTex /*= false*/)
-	: pos(pos), size(size), noTex(noTex)
+	: size(size), noTex(noTex)
 {
+	rb.pos = pos;
 }
 
 void Model::init()
@@ -24,12 +26,14 @@ void Model::loadModel(std::string path)
 	processNode(scene->mRootNode, scene);
 }
 
-void Model::render(Shader shader, bool setModel)
+void Model::render(Shader shader, float dt, bool setModel)
 {
+	rb.update(dt);
+
 	if (setModel)
 	{
 		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, pos);
+		model = glm::translate(model, rb.pos);
 		model = glm::scale(model, size);
 		shader.SetMat4("model", model);
 	}

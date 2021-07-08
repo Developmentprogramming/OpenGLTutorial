@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <stack>
 
 #include "graphics/Shader.h"
 #include "graphics/Texture.h"
@@ -17,6 +18,8 @@
 #include "graphics/models/Lamp.hpp"
 #include "graphics/models/Gun.hpp"
 #include "graphics/Light.h"
+#include "graphics/models/Sphere.hpp"
+#include "physics/Environment.h"
 
 unsigned int SRC_WIDTH = 800, SRC_HEIGHT = 600;
 Screen screen;
@@ -31,24 +34,20 @@ float lastFrame = 0.0f;
 
 bool flashLightOn = true;
 
+SphereArray launchObjects;
+
+void launchItem(float dt)
+{
+	RigidBody rb(1.0f, Camera::defaultCamera.cameraPos);
+	rb.applyImpulse(Camera::defaultCamera.cameraFront, 5000.0f, dt);
+	rb.applyAcceleration(Environment::gravitationalAcceleration);
+	launchObjects.instances.push_back(rb);
+}
+
 void processInput(double dt)
 {
 	if (Keyboard::key(GLFW_KEY_ESCAPE))
 		screen.setShouldClose(true);
-
-	if (Keyboard::key(GLFW_KEY_UP))
-	{
-		mixVal += .05f;
-		if (mixVal > 1)
-			mixVal = 1.0f;
-	}
-
-	if (Keyboard::key(GLFW_KEY_DOWN))
-	{
-		mixVal -= .05f;
-		if (mixVal < 0)
-			mixVal = 0.0f;
-	}
 
 	if (Keyboard::key(GLFW_KEY_W))
 		Camera::defaultCamera.updateCameraPos(CameraDirection::FORWARD, dt);
@@ -78,6 +77,12 @@ void processInput(double dt)
 	double scrollDy = Mouse::getScrollDY();
 	if (scrollDy != 0)
 		Camera::defaultCamera.updateCameraZoom(scrollDy);
+
+	if (Keyboard::keyWentDown(GLFW_KEY_F))
+		launchItem(dt);
+
+	/*if (Keyboard::keyWentDown(GLFW_KEY_K)) // Alternative way to check the projectile
+		sphere.rb.applyAcceleration(Environment::gravitationalAcceleration);*/
 }
 
 int main()
@@ -114,8 +119,10 @@ int main()
 	Shader shader("assets/object.vs.shader", "assets/object.fs.shader");
 	Shader lampShader("assets/object.vs.shader", "assets/lamp.fs.shader");
 
-	Gun g;
-	g.loadModel("assets/models/m4a1/scene.gltf");
+	/*Gun g;
+	g.loadModel("assets/models/m4a1/scene.gltf");*/
+
+	launchObjects.init();
 
 	DirLight dirLight = 
 	{ 
@@ -133,13 +140,32 @@ int main()
 		glm::vec3(0.0f,  0.0f, -3.0f)
 	};
 
-	Lamp lamps[4];
-	for (unsigned int i = 0; i < 4; i++) {
+	glm::vec4 ambient = glm::vec4(glm::vec3(0.05f), 1.0f);
+	glm::vec4 diffuse = glm::vec4(glm::vec3(0.8f), 1.0f);
+	glm::vec4 specular = glm::vec4(1.0f);
+	float k0 = 1.0f;
+	float k1 = 0.07f;
+	float k2 = 0.032f;
+
+	/*Lamp lamps[4];*/
+	/*for (unsigned int i = 0; i < 4; i++) 
+	{
 		lamps[i] = Lamp(glm::vec3(1.0f),
-			glm::vec4(glm::vec3(0.05f), 1.0f), glm::vec4(glm::vec3(0.8f), 1.0f), glm::vec4(glm::vec3(1.0f), 1.0f),
-			1.0f, 0.07f, 0.032f,
+			ambient, diffuse, specular,
+			k0, k1, k2,
 			pointLightPositions[i], glm::vec3(0.25f));
 		lamps[i].init();
+	}*/
+
+	LampArray lamps;
+	lamps.init();
+	for (unsigned int i = 0; i < 4; i++)
+	{
+		lamps.lightInstances.push_back({
+			pointLightPositions[i],
+			k0, k1, k2,
+			ambient, diffuse, specular
+		});
 	}
 
 	SpotLight s =
@@ -179,10 +205,11 @@ int main()
 			);
 		dirLight.render(shader);
 
-		for (int i = 0; i < 4; i++)
+		for (unsigned int i = 0; i < 4; i++)
 		{
-			lamps[i].pointLight.render(shader, i);
+			lamps.lightInstances[i].render(shader, i);
 		}
+		
 		shader.SetInt("noPointLights", 4);
 
 		if (flashLightOn)
@@ -193,32 +220,41 @@ int main()
 			shader.SetInt("noSpotLights", 1);
 		}
 		else
-		{
 			shader.SetInt("noSpotLights", 0);
-		}
 
 		shader.SetMat4("view", view);
 		shader.SetMat4("projection", projection);
 
-		g.render(shader);
+		std::stack<int> removeObjects;
+		for (int i = 0; i < launchObjects.instances.size(); i++)
+		{
+			if (glm::length(Camera::defaultCamera.cameraPos - launchObjects.instances[i].pos) > 50.0f)
+			{
+				removeObjects.push(i);
+				continue;
+			}
+		}
+
+		for (int i = 0; i < removeObjects.size(); i++)
+		{
+			launchObjects.instances.erase(launchObjects.instances.begin() + removeObjects.top());
+			removeObjects.pop();
+		}
+
+		if (launchObjects.instances.size() > 0)
+			launchObjects.render(shader, deltaTime);
 
 		lampShader.activate();
 		lampShader.SetMat4("view", view);
 		lampShader.SetMat4("projection", projection);
-		for (int i = 0; i < 4; i++)
-		{
-			lamps[i].render(lampShader);
-		}
+		lamps.render(lampShader, deltaTime);
 
 		screen.newFrame();
 	}
 
-	g.cleanup();
-	
-	for (int i = 0; i < 4; i++)
-	{
-		lamps[i].cleanup();
-	}
+	launchObjects.cleanup();
+
+	lamps.cleanup();
 
 	glfwTerminate();
 	return 0;
