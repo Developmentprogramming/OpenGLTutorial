@@ -26,7 +26,7 @@ void Model::loadModel(std::string path)
 	processNode(scene->mRootNode, scene);
 }
 
-void Model::render(Shader shader, float dt, bool setModel)
+void Model::render(Shader shader, float dt, bool setModel, bool doRender)
 {
 	rb.update(dt);
 
@@ -41,7 +41,7 @@ void Model::render(Shader shader, float dt, bool setModel)
 	shader.SetFloat("material.shininess", 0.5f);
 
 	for (auto& mesh: meshes)
-		mesh.render(shader);
+		mesh.render(shader, doRender);
 }
 
 void Model::cleanup()

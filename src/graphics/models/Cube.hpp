@@ -75,9 +75,4 @@ public:
 
 		meshes.push_back(Mesh(Vertex::getList(vertices, noVertices), indices));
 	}
-
-	void render(Shader shader, float dt)
-	{
-		Model::render(shader, dt);
-	}
 };

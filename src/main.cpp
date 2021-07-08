@@ -20,6 +20,7 @@
 #include "graphics/Light.h"
 #include "graphics/models/Sphere.hpp"
 #include "physics/Environment.h"
+#include "graphics/models/Box.hpp"
 
 unsigned int SRC_WIDTH = 800, SRC_HEIGHT = 600;
 Screen screen;
@@ -32,6 +33,8 @@ Camera Camera::defaultCamera(glm::vec3(0.0f));
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+Box box;
+
 bool flashLightOn = true;
 
 SphereArray launchObjects;
@@ -39,7 +42,7 @@ SphereArray launchObjects;
 void launchItem(float dt)
 {
 	RigidBody rb(1.0f, Camera::defaultCamera.cameraPos);
-	rb.applyImpulse(Camera::defaultCamera.cameraFront, 5000.0f, dt);
+	rb.transferEnergy(100.0f, Camera::defaultCamera.cameraFront);
 	rb.applyAcceleration(Environment::gravitationalAcceleration);
 	launchObjects.instances.push_back(rb);
 }
@@ -81,8 +84,11 @@ void processInput(double dt)
 	if (Keyboard::keyWentDown(GLFW_KEY_F))
 		launchItem(dt);
 
-	/*if (Keyboard::keyWentDown(GLFW_KEY_K)) // Alternative way to check the projectile
-		sphere.rb.applyAcceleration(Environment::gravitationalAcceleration);*/
+	if (Keyboard::keyWentDown(GLFW_KEY_I))
+	{
+		box.offsets.push_back(glm::vec3(box.offsets.size() * 1.0f));
+		box.sizes.push_back(glm::vec3(box.sizes.size() * 0.5f));
+	}
 }
 
 int main()
@@ -117,12 +123,15 @@ int main()
 	*/
 
 	Shader shader("assets/object.vs.shader", "assets/object.fs.shader");
-	Shader lampShader("assets/object.vs.shader", "assets/lamp.fs.shader");
+	Shader lampShader("assets/instanced/instanced.vs.shader", "assets/lamp.fs.shader");
+	Shader launchShader("assets/instanced/instanced.vs.shader", "assets/object.fs.shader");
+	Shader boxShader("assets/instanced/box.vs.shader", "assets/instanced/box.fs.shader");
 
 	/*Gun g;
 	g.loadModel("assets/models/m4a1/scene.gltf");*/
 
 	launchObjects.init();
+	box.init();
 
 	DirLight dirLight = 
 	{ 
@@ -136,7 +145,7 @@ int main()
 	{
 		glm::vec3(0.7f,  0.2f,  2.0f),
 		glm::vec3(2.3f, -3.3f, -4.0f),
-		glm::vec3(-4.0f,  2.0f, -12.0f),
+		glm::vec3(-4.0f, 2.0f, -12.0f),
 		glm::vec3(0.0f,  0.0f, -3.0f)
 	};
 
@@ -197,20 +206,25 @@ int main()
 		projection = glm::perspective(glm::radians(Camera::defaultCamera.getZoom()), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
 
 		shader.activate();
+		launchShader.activate();
+
 		shader.Set3Float("viewPos", Camera::defaultCamera.cameraPos);
+		launchShader.Set3Float("viewPos", Camera::defaultCamera.cameraPos);
 
 		dirLight.direction = glm::vec3(
 			glm::rotate(glm::mat4(1.0f), glm::radians(0.5f), glm::vec3(1.0f, 0.0f, 0.0f)) * 
-			glm::vec4(dirLight.direction, 1.0f)
-			);
+			glm::vec4(dirLight.direction, 1.0f));
 		dirLight.render(shader);
+		dirLight.render(launchShader);
 
 		for (unsigned int i = 0; i < 4; i++)
 		{
 			lamps.lightInstances[i].render(shader, i);
+			lamps.lightInstances[i].render(launchShader, i);
 		}
 		
 		shader.SetInt("noPointLights", 4);
+		launchShader.SetInt("noPointLights", 4);
 
 		if (flashLightOn)
 		{
@@ -218,9 +232,13 @@ int main()
 			s.direction = Camera::defaultCamera.cameraFront;
 			s.render(shader, 0);
 			shader.SetInt("noSpotLights", 1);
+			launchShader.SetInt("noSpotLights", 1);
 		}
 		else
+		{
 			shader.SetInt("noSpotLights", 0);
+			launchShader.SetInt("noSpotLights", 0);
+		}
 
 		shader.SetMat4("view", view);
 		shader.SetMat4("projection", projection);
@@ -241,13 +259,28 @@ int main()
 			removeObjects.pop();
 		}
 
+		launchShader.activate();
 		if (launchObjects.instances.size() > 0)
-			launchObjects.render(shader, deltaTime);
+		{
+			launchShader.SetMat4("view", view);
+			launchShader.SetMat4("projection", projection);
+			launchObjects.render(launchShader, deltaTime);
+		}
 
 		lampShader.activate();
 		lampShader.SetMat4("view", view);
 		lampShader.SetMat4("projection", projection);
 		lamps.render(lampShader, deltaTime);
+
+		// render boxes
+		if (box.offsets.size() > 0)
+		{
+			// if instances exists
+			boxShader.activate();
+			boxShader.SetMat4("view", view);
+			boxShader.SetMat4("projection", projection);
+			box.render(boxShader);
+		}
 
 		screen.newFrame();
 	}
@@ -255,6 +288,8 @@ int main()
 	launchObjects.cleanup();
 
 	lamps.cleanup();
+
+	box.cleanup();
 
 	glfwTerminate();
 	return 0;
