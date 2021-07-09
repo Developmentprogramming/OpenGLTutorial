@@ -33,8 +33,6 @@ Camera Camera::defaultCamera(glm::vec3(0.0f));
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-Box box;
-
 bool flashLightOn = true;
 
 SphereArray launchObjects;
@@ -83,12 +81,6 @@ void processInput(double dt)
 
 	if (Keyboard::keyWentDown(GLFW_KEY_F))
 		launchItem(dt);
-
-	if (Keyboard::keyWentDown(GLFW_KEY_I))
-	{
-		box.offsets.push_back(glm::vec3(box.offsets.size() * 1.0f));
-		box.sizes.push_back(glm::vec3(box.sizes.size() * 0.5f));
-	}
 }
 
 int main()
@@ -131,7 +123,12 @@ int main()
 	g.loadModel("assets/models/m4a1/scene.gltf");*/
 
 	launchObjects.init();
+
+	Box box;
 	box.init();
+
+	Model m(BoundType::AABB, glm::vec3(0.0f), glm::vec3(0.05f));
+	m.loadModel("assets/models/lotr_troll/scene.gltf");
 
 	DirLight dirLight = 
 	{ 
@@ -193,6 +190,9 @@ int main()
 
 	while (!screen.shouldClose())
 	{
+		box.offsets.clear();
+		box.sizes.clear();
+
 		double currentTime = glfwGetTime();
 		deltaTime = currentTime - lastFrame;
 		lastFrame = currentTime;
@@ -206,42 +206,53 @@ int main()
 		projection = glm::perspective(glm::radians(Camera::defaultCamera.getZoom()), (float)SRC_WIDTH / (float)SRC_HEIGHT, 0.1f, 100.0f);
 
 		shader.activate();
-		launchShader.activate();
-
 		shader.Set3Float("viewPos", Camera::defaultCamera.cameraPos);
+
+		launchShader.activate();
 		launchShader.Set3Float("viewPos", Camera::defaultCamera.cameraPos);
 
 		dirLight.direction = glm::vec3(
 			glm::rotate(glm::mat4(1.0f), glm::radians(0.5f), glm::vec3(1.0f, 0.0f, 0.0f)) * 
 			glm::vec4(dirLight.direction, 1.0f));
+		shader.activate();
 		dirLight.render(shader);
+		launchShader.activate();
 		dirLight.render(launchShader);
 
 		for (unsigned int i = 0; i < 4; i++)
 		{
+			shader.activate();
 			lamps.lightInstances[i].render(shader, i);
+			launchShader.activate();
 			lamps.lightInstances[i].render(launchShader, i);
 		}
 		
+		shader.activate();
 		shader.SetInt("noPointLights", 4);
+		launchShader.activate();
 		launchShader.SetInt("noPointLights", 4);
 
 		if (flashLightOn)
 		{
 			s.position = Camera::defaultCamera.cameraPos;
 			s.direction = Camera::defaultCamera.cameraFront;
+			shader.activate();
 			s.render(shader, 0);
 			shader.SetInt("noSpotLights", 1);
+			launchShader.activate();
+			s.render(launchShader, 0);
 			launchShader.SetInt("noSpotLights", 1);
 		}
 		else
 		{
+			shader.activate();
 			shader.SetInt("noSpotLights", 0);
-			launchShader.SetInt("noSpotLights", 0);
 		}
 
+		shader.activate();
 		shader.SetMat4("view", view);
 		shader.SetMat4("projection", projection);
+		m.render(shader, deltaTime, &box);
 
 		std::stack<int> removeObjects;
 		for (int i = 0; i < launchObjects.instances.size(); i++)
@@ -264,13 +275,13 @@ int main()
 		{
 			launchShader.SetMat4("view", view);
 			launchShader.SetMat4("projection", projection);
-			launchObjects.render(launchShader, deltaTime);
+			launchObjects.render(launchShader, deltaTime, &box);
 		}
 
 		lampShader.activate();
 		lampShader.SetMat4("view", view);
 		lampShader.SetMat4("projection", projection);
-		lamps.render(lampShader, deltaTime);
+		lamps.render(lampShader, deltaTime, &box);
 
 		// render boxes
 		if (box.offsets.size() > 0)

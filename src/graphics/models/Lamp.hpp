@@ -29,11 +29,11 @@ public:
 
 	Lamp() {}
 
-	void render(Shader shader, float dt, bool setModel = true, bool doRender = true)
+	void render(Shader shader, float dt, Box* box, bool setModel = true, bool doRender = true)
 	{
 		shader.Set3Float("lightColor", lightColor);
 
-		Cube::render(shader, dt, setModel, doRender);
+		Cube::render(shader, dt, box, setModel, doRender);
 	}
 };
 
@@ -51,7 +51,7 @@ public:
 		ModelArray::init();
 	}
 
-	void render(Shader shader, float dt)
+	void render(Shader shader, float dt, Box* box)
 	{
 		positions.clear();
 		sizes.clear();
@@ -62,6 +62,6 @@ public:
 			sizes.push_back(model.size);
 		}
 
-		ModelArray::render(shader, dt, false);
+		ModelArray::render(shader, dt, box, false);
 	}
 };

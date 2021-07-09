@@ -9,7 +9,7 @@ public:
 	Material material;
 
 	Cube(glm::vec3 pos = glm::vec3(0.0f), glm::vec3 size = glm::vec3(1.0f))
-		: Model(pos, size)
+		: Model(BoundType::AABB, pos, size)
 	{
 	}
 
@@ -73,6 +73,8 @@ public:
 		Texture flagSpec("assets/flag_specular.jpg", "material.specular");
 		flagSpec.load();*/
 
-		meshes.push_back(Mesh(Vertex::getList(vertices, noVertices), indices));
+		BoundingRegion br(glm::vec3(-0.5f), glm::vec3(0.5f));
+
+		meshes.push_back(Mesh(br, Vertex::getList(vertices, noVertices), indices));
 	}
 };

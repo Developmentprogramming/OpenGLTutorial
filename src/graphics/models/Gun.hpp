@@ -7,10 +7,10 @@ class Gun : public Model
 {
 public:
 	Gun()
-		: Model(glm::vec3(0.0f), glm::vec3(1 / 300.0f), true)
+		: Model(BoundType::AABB, glm::vec3(0.0f), glm::vec3(1 / 300.0f), true)
 	{}
 
-	void render(Shader shader, float dt, bool setModel = false)
+	void render(Shader shader, float dt, Box* box, bool setModel = false)
 	{
 		glm::mat4 model = glm::mat4(1.0f);
 
@@ -35,7 +35,7 @@ public:
 
 		shader.SetMat4("model", model);
 
-		Model::render(shader, dt, setModel);
+		Model::render(shader, dt, box, setModel);
 	}
 
 };
